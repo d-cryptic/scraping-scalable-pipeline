@@ -2,53 +2,154 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: prometheus
+  # namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
+  sourceRepos:
+  - '*'
   source:
-    repoURL: git@gitlab.com:prod-nht-barun-d/prod-day2-monitoring.git
-    path: charts/prometheus
-    targetRevision: HEAD
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: prometheus
+    targetRevision: 25.3.1
     helm:
-      releaseName: prometheus
       values: |
-        server:
-          replicaCount: 3
-          statefulSet:
-            enabled: true
-          alertmanagers:
-            - scheme: http
-              static_configs:
-              - targets:
-                - "alertmanager.monitoring.svc.cluster.local:9093"
-        serverFiles:
-          alerting_rules.yml:
-             groups:
-              - name: Instances
-                rules:
-                  - alert: InstanceDown
-                    expr: up == 1
-                    for: 1m
-                    labels:
-                      severity: critical
-                    annotations:
-                      description: '{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minutes.'
-                      summary: 'Instance {{ $labels.instance }} down'
-              - name: Instances
-                rules:
-                  - alert: InstanceDown
-                    expr: up == 1
-                    for: 1m
-                    labels:
-                      severity: warning
-                    annotations:
-                      description: '{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minutes.'
-                      summary: 'Instance {{ $labels.instance }} down'
-
+        prometheus-pushgateway:
+          enabled: true
         alertmanager:
           enabled: false
+        server:
+          service:
+            type: NodePort
+          statefulSet:
+            enabled: true
+          statefulsetReplica:
+            enabled: true
+            replica: 2
+          serviceMonitorSelectorNilUsesHelmValues: false
+          additionalScrapeConfigs: |
+            - job_name: 'kubernetes-nodes'
+              kubernetes_sd_configs:
+                - role: node
+            - job_name: 'kubernetes-pods'
+              kubernetes_sd_configs:
+                - role: pod
+            - job_name: 'kubernetes-services'
+              kubernetes_sd_configs:
+                - role: service
+            - job_name: 'kubernetes-endpoints'
+              kubernetes_sd_configs:
+                - role: endpoints
+            - job_name: 'kubernetes-deployments'
+              kubernetes_sd_configs:
+                - role: deployment
+            - job_name: 'kubernetes-statefulsets'
+              kubernetes_sd_configs:
+                - role: statefulset
+            - job_name: 'kubernetes-replicasets'
+              kubernetes_sd_configs:
+                - role: replicaset
+            - job_name: 'kubernetes-pv'
+              kubernetes_sd_configs:
+                - role: persistentvolume
+              
+            - job_name: 'kubernetes-apiservers'
+              honor_labels: true
+              kubernetes_sd_configs:
+              - role: endpoints
+              scheme: https 
+              tls_config:
+                ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+              relabel_configs:
+              - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+                action: keep
+                regex: default;kubernetes;https
 
+            - job_name: 'kubernetes-service-endpoints'
+              scrape_interval: 5s
+              scrape_timeout: 2s
+              kubernetes_sd_configs:
+                - role: endpoints
+              relabel_configs:
+                - source_labels: &#91;__meta_kubernetes_service_annotation_prometheus_io_scrape]
+                  action: keep
+                  regex: true
+                - source_labels: &#91;__meta_kubernetes_service_annotation_prometheus_io_scheme]
+                  action: replace
+                  target_label: __scheme__
+                  regex: (https?)
+                - source_labels: &#91;__meta_kubernetes_service_annotation_prometheus_io_path]
+                  action: replace
+                  target_label: __metrics_path__
+                  regex: (.+)
+                - source_labels: &#91;__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+                  action: replace
+                  target_label: __address__
+                  regex: (.+)(?::\d+);(\d+)
+                  replacement: $1:$2
+                - action: labelmap
+                  regex: __meta_kubernetes_service_label_(.+)
+                - source_labels: &#91;__meta_kubernetes_namespace]
+                  action: replace
+                  target_label: kubernetes_namespace
+                - source_labels: &#91;__meta_kubernetes_service_name]
+                  action: replace
+                  target_label: kubernetes_name
+                
+            - job_name: 'argocd'
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    names:
+                      - argocd
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+                  action: keep
+                  regex: argocd-server
+            - job_name: 'argo-workflows'
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    names:
+                      - argo
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_label_app]
+                  action: keep
+                  regex: argo-workflow-controller
+            - job_name: 'argo-events'
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    names:
+                      - argo-events
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_label_app]
+                  action: keep
+                  regex: eventsource-controller|sensor-controller
+            - job_name: 'grafana'
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    names:
+                      - monitoring
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+                  action: keep
+                  regex: grafana
+            - job_name: 'mysql'
+              kubernetes_sd_configs:
+                - role: service
+                  namespaces:
+                    names:
+                      - monitoring
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_service_name]
+                  action: keep
+                  regex: mysql
   destination:
-    server: "https://kubernetes.default.svc"
+    server: https://kubernetes.default.svc
     namespace: monitoring
   syncPolicy:
     automated:
