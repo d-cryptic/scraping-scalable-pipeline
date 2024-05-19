@@ -97,10 +97,10 @@ spec:
         #   releaseName: "{{appName}}"
         #   valueFiles:
         #     - "values.yaml"
-        path: "k8s-manifests/{{appName}}"
-        directory:
-          exclude: "{config.json}"
-          include: "*.yaml"
+        path: "k8s-manifests"
+        # directory:
+          # exclude: "{config.json}"
+          # include: "*.yaml"
       syncPolicy:
         syncOptions:
           # - CreateNamespace=true
