@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  # namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sourceRepos:
+  - '*'
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: grafana
+    targetRevision: 6.59.4
+    helm:
+      values: |
+        adminUser: admin
+        adminPassword: strongpassword
+        grafana.ini:
+          database:
+            type: mysql
+            host: mysql-primary.monitoring.svc.cluster.local
+            name: grafana
+            user: root
+            password: admin
+          paths:
+            data: /var/lib/grafana/
+            logs: /var/log/grafana
+            plugins: /var/lib/grafana/plugins
+            provisioning: /etc/grafana/provisioning
+          analytics:
+            check_for_updates: true
+          log:
+            mode: console
+          grafana_net:
+            url: https://grafana.net
+          metrics:
+            enabled: true
+          live:
+            max_connections: 0
+          auth:
+            anonymous:
+              enabled: true
+              org_name: test
+              org_role: Admin
+        service:
+          type: NodePort
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
