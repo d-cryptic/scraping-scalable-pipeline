@@ -12,4 +12,4 @@ argo-cd:
    cm:
     exec.enabled: true
   server.service.type: "LoadBalancer"
-  server.service.loadBalancerIP: "35.211.135.164"
+  # server.service.loadBalancerIP: "35.211.135.164"
