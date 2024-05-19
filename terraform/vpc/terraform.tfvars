@@ -1,0 +1,8 @@
+project_id             = "<project_id>"
+network_name           = "vpc-gke-test-network"
+subnetwork_name        = "vpc-gke-test-subnetwork"
+ip_cidr_range          = "10.142.0.0/20"
+range_name_services    = "gke-test-2-services"
+range_name_pods        = "gke-test-2-pods"
+ip_cidr_range_services = "10.12.0.0/20"
+ip_cidr_range_pods     = "10.8.0.0/14"
