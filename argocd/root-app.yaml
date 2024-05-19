@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: git@github.com:d-cryptic/scraping-scalable-pipeline.git
-    path: k8s-manifests/
+    path: argocd
     targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
@@ -17,3 +17,95 @@ spec:
   syncPolicy:
     automated:
       selfHeal: true
+
+---
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: root-helm
+spec:
+  syncPolicy:
+    preserveResourcesOnDeletion: false
+  generators:
+    - git:
+        repoURL: git@github.com:d-cryptic/scraping-scalable-pipeline.git
+        revision: HEAD
+        files:
+          - path: k8s-helm/**/config.json
+  template:
+    metadata:
+      name: "{{name}}-{{namespace}}"
+      namespace: argocd
+    spec:
+      destination:
+        namespace: "{{namespace}}"
+        name: "in-cluster"
+      project: "default"
+      source:
+        repoURL: git@github.com:d-cryptic/scraping-scalable-pipeline.git
+        targetRevision: HEAD
+        path: "k8s-helm/{{appName}}"
+        helm:
+          releaseName: "{{appName}}"
+          valueFiles:
+            - "values.yaml"
+        # path: "{{path}}"
+        # repoURL: https://gitlab.com/prod-nht-barun-d/prod-day1-deployment.git
+        # targetRevision: HEAD
+        # directory:
+        #   exclude: "{config.json}"
+        #   include: "*.yaml"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+          - Validate=true
+        automated:
+          prune: true
+          selfHeal: true
+
+---
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: root-manifests
+spec:
+  syncPolicy:
+    preserveResourcesOnDeletion: false
+  generators:
+    - git:
+        repoURL: git@github.com:d-cryptic/scraping-scalable-pipeline.git
+        revision: HEAD
+        files:
+          - path: k8s-manifests/**/config.json
+  template:
+    metadata:
+      name: "{{name}}-{{namespace}}"
+      namespace: argocd
+    spec:
+      destination:
+        namespace: "{{namespace}}"
+        name: "in-cluster"
+      project: "default"
+      source:
+        repoURL: git@github.com:d-cryptic/scraping-scalable-pipeline.git
+        targetRevision: HEAD
+        # path: "k8s-manifests/{{appName}}"
+        # helm:
+        #   releaseName: "{{appName}}"
+        #   valueFiles:
+        #     - "values.yaml"
+        path: "k8s-manifests/{{appName}}"
+        directory:
+          exclude: "{config.json}"
+          include: "*.yaml"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+          - Validate=true
+        automated:
+          prune: true
+          selfHeal: true
