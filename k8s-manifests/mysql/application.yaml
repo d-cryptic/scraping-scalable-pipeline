@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mysql
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sourceRepos:
+  - '*'
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: mysql
+    targetRevision: 9.14.4
+    helm:
+      values: |
+        image:
+          registry: docker.io
+          respository: bitnami/mysql
+          tag: 8.0.34-debian-11-r31
+        architecture: replication
+        auth:
+          rootPassword: admin
+          database: grafana
+          username: admin
+          password: password
+          replicationUser: replicator
+          replicationPassword: password
+        primary:
+          service:
+            type: NodePort
+        secondary:
+          service:
+            type: NodePort
+        metrics:
+          enabled: true
+        global:
+          commonAnnotations:
+            prometheus.io/scrape: 'true'
+            prometheus.io/path: '/metrics'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

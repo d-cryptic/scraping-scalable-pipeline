@@ -36,7 +36,7 @@ spec:
   template:
     metadata:
       name: "{{name}}-{{namespace}}"
-      namespace: argocd
+      # namespace: argocd
     spec:
       destination:
         namespace: "{{namespace}}"
@@ -58,8 +58,8 @@ spec:
         #   include: "*.yaml"
       syncPolicy:
         syncOptions:
-          - CreateNamespace=true
-          - ApplyOutOfSyncOnly=true
+          # - CreateNamespace=true
+          # - ApplyOutOfSyncOnly=true
           - Validate=true
         automated:
           prune: true
@@ -83,7 +83,7 @@ spec:
   template:
     metadata:
       name: "{{name}}-{{namespace}}"
-      namespace: argocd
+      # namespace: argocd
     spec:
       destination:
         namespace: "{{namespace}}"
@@ -103,8 +103,8 @@ spec:
           include: "*.yaml"
       syncPolicy:
         syncOptions:
-          - CreateNamespace=true
-          - ApplyOutOfSyncOnly=true
+          # - CreateNamespace=true
+          # - ApplyOutOfSyncOnly=true
           - Validate=true
         automated:
           prune: true
