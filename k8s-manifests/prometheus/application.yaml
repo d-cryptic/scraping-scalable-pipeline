@@ -1,0 +1,57 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@gitlab.com:prod-nht-barun-d/prod-day2-monitoring.git
+    path: charts/prometheus
+    targetRevision: HEAD
+    helm:
+      releaseName: prometheus
+      values: |
+        server:
+          replicaCount: 3
+          statefulSet:
+            enabled: true
+          alertmanagers:
+            - scheme: http
+              static_configs:
+              - targets:
+                - "alertmanager.monitoring.svc.cluster.local:9093"
+        serverFiles:
+          alerting_rules.yml:
+             groups:
+              - name: Instances
+                rules:
+                  - alert: InstanceDown
+                    expr: up == 1
+                    for: 1m
+                    labels:
+                      severity: critical
+                    annotations:
+                      description: '{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minutes.'
+                      summary: 'Instance {{ $labels.instance }} down'
+              - name: Instances
+                rules:
+                  - alert: InstanceDown
+                    expr: up == 1
+                    for: 1m
+                    labels:
+                      severity: warning
+                    annotations:
+                      description: '{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minutes.'
+                      summary: 'Instance {{ $labels.instance }} down'
+
+        alertmanager:
+          enabled: false
+
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
